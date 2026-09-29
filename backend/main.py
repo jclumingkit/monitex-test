@@ -9,19 +9,30 @@ import asyncio
 from fastapi import FastAPI
 
 WORKER_COUNT = 5
-worker_tasks = []
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    for worker_id in range(WORKER_COUNT):
-        worker_tasks.append(
-            asyncio.create_task(event_worker(worker_id))
-        )
+    worker_tasks = [
+        asyncio.create_task(event_worker(worker_id))
+        for worker_id in range(WORKER_COUNT)
+    ]
 
     yield
 
-    await event_queue.join()
+    print("Shutting down: draining event queue...")
+
+    try:
+        await asyncio.wait_for(
+            event_queue.join(),
+            timeout=10,
+        )
+    except asyncio.TimeoutError:
+        print(
+            f"Queue did not drain before timeout. "
+            f"Remaining queued events: {event_queue.qsize()}"
+        )
+
+    print("Stopping workers...")
 
     for task in worker_tasks:
         task.cancel()
@@ -30,6 +41,8 @@ async def lifespan(app: FastAPI):
         *worker_tasks,
         return_exceptions=True,
     )
+
+    print("Shutdown complete")
 
 
 app = FastAPI(lifespan=lifespan)

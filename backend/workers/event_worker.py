@@ -1,5 +1,6 @@
 import asyncio
 from queue_service.event_queue import event_queue
+from ingestion.process_event import process_event
 
 
 async def event_worker(worker_id: int):
@@ -7,9 +8,17 @@ async def event_worker(worker_id: int):
         while True:
             event = await event_queue.get()
             try:
-                print(f"Worker {worker_id} processing new event {event.event_id}")
-                print(event)
-                # await process_event(event)
+                print(f"Started worker {worker_id} processing event {event.event_id}")
+                await process_event(event)
+                print(
+                    f"Worker {worker_id} completed event {event.event_id}"
+                )
+
+            except Exception as error:
+                print(
+                    f"Worker {worker_id} failed event "
+                    f"{event.event_id}: {error}"
+                )
             finally:
                 event_queue.task_done()
 

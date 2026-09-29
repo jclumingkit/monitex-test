@@ -1,4 +1,7 @@
 from enum import Enum
+from datetime import datetime
+from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field
 
@@ -17,8 +20,25 @@ class DetectionEventType(str, Enum):
     PANIC_BUTTON = "panic_button"
 
 
+class DetectionEventSource(str, Enum):
+    CAMERA = "camera"
+    SENSOR = "sensor"
+
+
 class DetectionEvent(BaseModel):
     event_id: str
     site_id: str
+    zone: str
     type: DetectionEventType
-    confidence: float = Field(gt=0.0, lt=1.0)
+    source: DetectionEventSource
+    confidence: float = Field(ge=0.0, le=1.0)
+    timestamp: datetime
+    timezone: str | None = None
+    snapshot_url: str | None
+    metadata: dict[str, Any]
+
+
+class DetectionEventSeverity(str, Enum):
+    CRITICAL = "critical"
+    WARNING = "warning"
+    INFO = "info" 

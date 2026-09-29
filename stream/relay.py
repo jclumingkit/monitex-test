@@ -11,7 +11,7 @@ async def main():
             response = requests.post(
                 url=f"{BACKEND_SERVER_URL}/api/webhook",
                 headers={
-                    # "Authorization": f"Bearer {openrouter_key}"   // ideally, there should be an auth/api key in the header
+                    # "Authorization": f"Bearer {auth_bearer}"   // ideally, there should be an auth/api key in the header
                     "Content-Type": "application/json",
                 },
                 data=message
