@@ -1,7 +1,7 @@
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS events (
-    event_id TEXT PRIMARY KEY,
+    event_id TEXT PRIMARY KEY NOT NULL UNIQUE,
     site_id TEXT NOT NULL,
     zone TEXT NOT NULL,
     type TEXT NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS events (
 
 CREATE TABLE IF NOT EXISTS processed_events (
     id TEXT PRIMARY KEY NOT NULL,
-    event_id TEXT NOT NULL REFERENCES events(event_id),
+    event_id TEXT NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
     severity TEXT NOT NULL CHECK (severity IN ('critical', 'warning', 'info')),
     false_positive_probability REAL NOT NULL
         CHECK (false_positive_probability >= 0.0 AND false_positive_probability <= 1.0),

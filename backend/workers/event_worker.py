@@ -1,6 +1,10 @@
 import asyncio
+from datetime import datetime, timezone
+
 from queue_service.event_queue import event_queue
 from ingestion.process_event import process_event
+from models.processed_event import ProcessedEventResponse
+from realtime.sse_manager import sse_manager
 
 
 async def event_worker(worker_id: int, repository):
@@ -17,8 +21,30 @@ async def event_worker(worker_id: int, repository):
 
                 result = await process_event(event)
                 if result:
-                    await repository.save_processed_event(result)
+                    processed_event_id = await repository.save_processed_event(result)
+
+                    now = datetime.now(timezone.utc)
+                    normalized_result = ProcessedEventResponse(
+                        id=processed_event_id,
+                        event_id=result.event_id,
+                        site_id=result.site_id,
+                        zone=result.zone,
+                        type=result.type,
+                        source=result.source,
+                        confidence=result.confidence,
+                        timestamp=result.timestamp,
+                        snapshot_url=result.snapshot_url,
+                        severity=result.severity,
+                        summary=result.summary,
+                        status="pending_operator_review",
+                        date_created=now,
+                        date_updated=now,
+                    )
+
                     # send to SSE for frontend real time update
+                    await sse_manager.publish(
+                        normalized_result.model_dump(mode="json")
+                    )
 
                 print(
                     f"Worker {worker_id} completed event {event.event_id}"

@@ -3,6 +3,9 @@ from queue_service.event_queue import event_queue
 from models.detection_event import DetectionEvent
 from workers.event_worker import event_worker
 from database.sqlite import connect_db, initialize_db, EventRepository
+from api.processed_events import router as processed_events_router
+from api.stream_events import router as stream_events
+from fastapi.middleware.cors import CORSMiddleware
 
 from contextlib import asynccontextmanager
 import asyncio
@@ -23,6 +26,7 @@ async def lifespan(app: FastAPI):
     await initialize_db(db)
 
     app.state.db = db
+    app.state.repository = repository
 
     # Wake up workers
     worker_tasks = [
@@ -67,6 +71,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.get("/")
 def read_root():
     return {"message": "Hello Monitex Security"}
@@ -88,3 +103,11 @@ async def api_webhook(event: DetectionEvent):
         "status": "ok",
         "message": "Message received"
     }
+
+# GET processed events
+app.include_router(processed_events_router)
+
+# SSE realtime
+app.include_router(stream_events)
+
+
