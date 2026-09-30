@@ -11,19 +11,12 @@ async def process_event(event: DetectionEvent):
     triage = await event_classifier(event)
 
     if triage.false_positive:
-        # still persist in a "dump" table for logs and audit
-        print(
-            f"Event {event.event_id} rejected as likely false positive "
-            f"({triage.false_positive_probability:.0%})"
-        )
-        return
+        return None
 
     summary = await summarize_event(event)
 
-    classified_event = ClassifiedEvent(
+    return ClassifiedEvent(
         **event.model_dump(),
         **triage.model_dump(),
         summary=summary,
     )
-
-    print(classified_event.model_dump_json())

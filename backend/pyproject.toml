@@ -5,6 +5,7 @@ description = "Backend for Monitex test demo"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "aiosqlite>=0.22.1",
     "fastapi[standard]>=0.141.1",
     "requests>=2.34.2",
 ]

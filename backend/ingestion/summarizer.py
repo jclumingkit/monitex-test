@@ -29,11 +29,11 @@ async def summarize_event(event: DetectionEvent) -> str:
                 {
                     "role": "system",
                     "content": (
-                        "You summarize security monitoring events for operators. "
-                        "Return exactly one concise sentence. "
-                        "Maximum 25 words. "
+                        "You summarize security monitoring events for human operators. "
+                        "Return exactly one concise sentence with a recommended action. "
+                        "Maximum 30 words. "
                         "Only state facts present in the event. "
-                        "Do not speculate, recommend actions, or mention missing information."
+                        "Do not speculate or mention missing information."
                     ),
                 },
                 {
@@ -42,7 +42,7 @@ async def summarize_event(event: DetectionEvent) -> str:
                 },
             ],
             "temperature": 0.1,
-            "max_tokens": 80,
+            "max_tokens": 120,
         },
     )
 

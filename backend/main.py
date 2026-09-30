@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from queue_service.event_queue import event_queue
 from models.detection_event import DetectionEvent
 from workers.event_worker import event_worker
+from database.sqlite import connect_db, initialize_db, EventRepository
 
 from contextlib import asynccontextmanager
 import asyncio
@@ -12,12 +13,28 @@ WORKER_COUNT = 5
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # -----------------------
+    # STARTUP
+    # -----------------------
+
+    # Connect to database
+    db = await connect_db()
+    repository = EventRepository(db)
+    await initialize_db(db)
+
+    app.state.db = db
+
+    # Wake up workers
     worker_tasks = [
-        asyncio.create_task(event_worker(worker_id))
+        asyncio.create_task(event_worker(worker_id, repository))
         for worker_id in range(WORKER_COUNT)
     ]
 
     yield
+
+    # -----------------------
+    # SHUTDOWN
+    # -----------------------
 
     print("Shutting down: draining event queue...")
 
@@ -41,6 +58,9 @@ async def lifespan(app: FastAPI):
         *worker_tasks,
         return_exceptions=True,
     )
+
+    print("Stopping database...")
+    await db.close()
 
     print("Shutdown complete")
 

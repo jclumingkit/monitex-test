@@ -13,13 +13,14 @@ for an operator.
 1. The stream relay sends a detection event to the backend webhook.
 2. The backend validates the event and places it in an in-memory queue.
 3. Five workers process queued events concurrently, so up to five events can be
-   handled at the same time.
+   handled at the same time. Each received event is saved to SQLite first.
 4. Trusted alarm types, such as panic buttons and fire alarms, use fixed rules.
 5. Other events are classified by Jev through OpenRouter when an API key is
    available. The classifier considers details such as detection confidence,
    location, event type, and local time.
 6. Events that are likely false positives are filtered out. Accepted events are
-   assigned a severity and given a one-sentence summary.
+   assigned a severity, given a one-sentence summary, and saved for operator
+   review with a pending status.
 
 ```text
 Simulated event stream
@@ -28,15 +29,20 @@ Simulated event stream
      Relay
         |
         v
- Backend webhook -> Event queue -> 5 concurrent workers
-                                      |
-                                      v
-                          Classify and summarize
+ Backend webhook -> Event queue -> 5 concurrent workers -> SQLite
+                                       |
+                                       v
+                           Classify and summarize
+                                       |
+                                       v
+                               Processed events
 ```
 
-This is currently a prototype. Processed events and rejected-event messages are
-printed to the backend console. They are not yet saved to a database or shown in
-a user interface.
+This is currently a prototype. Events are stored in a local SQLite database at
+`backend/data/monitex.db`. Raw received events are stored in `events`, while
+accepted classified events are stored in `processed_events` with a default
+status of `pending_operator_review`. There is not yet a user interface or an
+operator workflow for updating that status.
 
 ## Running the Backend
 
@@ -49,6 +55,10 @@ uv run fastapi dev main.py
 
 The backend starts at `http://127.0.0.1:8000`. Its health status is available at
 `http://127.0.0.1:8000/health`.
+
+On startup, the backend creates the local data directory and initializes the
+SQLite schema if the database does not already exist. The database connection is
+closed after the worker queue is drained during shutdown.
 
 To use the AI classifier and summarizer, set an OpenRouter API key before
 starting the backend:
@@ -74,6 +84,9 @@ See `../stream/README.md` for the stream commands.
 ## Current Limits
 
 - The queue exists only in memory and is lost when the backend stops.
-- Results are printed rather than persisted.
+- The SQLite database is local to the backend instance and is not configured for
+  multi-instance deployments.
+- False-positive events are stored as raw events but are not yet inserted into
+  `processed_events`.
 - There is no authentication on the webhook.
 - The demo does not yet provide a dashboard or operator review workflow.
