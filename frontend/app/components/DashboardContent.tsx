@@ -102,12 +102,17 @@ export default function DashboardContent({
     queryClient.setQueryData<InfiniteData<ProcessedEvent[]>>(
       getProcessedEventsQueryKey(queryStatus, dateFrom),
       (current) => {
-        if (
-          current?.pages.some((page) =>
-            page.some((item) => item.event_id === event.event_id),
-          )
-        ) {
-          return current;
+        const existingEvent = current?.pages.some((page) =>
+          page.some((item) => item.id === event.id),
+        );
+
+        if (current && existingEvent) {
+          return {
+            ...current,
+            pages: current.pages.map((page) =>
+              page.map((item) => (item.id === event.id ? event : item)),
+            ),
+          };
         }
 
         if (!current) {
@@ -122,6 +127,10 @@ export default function DashboardContent({
           pages: [[event, ...firstPage], ...remainingPages],
         };
       },
+    );
+
+    setSelectedEventSnapshot((current) =>
+      current?.id === event.id ? event : current,
     );
 
     if (!inserted) return;

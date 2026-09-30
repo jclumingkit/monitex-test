@@ -254,3 +254,108 @@ class EventRepository:
 
         await self.db.commit()
         return processed_event_id
+
+    async def get_processed_event_by_id(
+        self, processed_event_id: str
+    ) -> aiosqlite.Row | None:
+        cursor = await self.db.execute(
+            """
+            SELECT
+                processed_events.id,
+                processed_events.event_id,
+                processed_events.severity,
+                processed_events.summary,
+                processed_events.status,
+                processed_events.date_created,
+                processed_events.date_updated,
+                events.site_id,
+                events.zone,
+                events.type,
+                events.source,
+                events.confidence,
+                events.timestamp,
+                events.snapshot_url
+            FROM processed_events
+            JOIN events ON events.event_id = processed_events.event_id
+            WHERE processed_events.id = ?
+            """,
+            (processed_event_id,),
+        )
+        return await cursor.fetchone()
+
+    async def get_recent_processed_events(
+        self,
+        processed_event_id: str,
+        window_seconds: int,
+    ) -> list[aiosqlite.Row]:
+        cursor = await self.db.execute(
+            """
+            SELECT
+                recent_processed.id,
+                recent_events.type,
+                recent_processed.date_created
+            FROM processed_events AS recent_processed
+            JOIN events AS recent_events
+                ON recent_events.event_id = recent_processed.event_id
+            JOIN event_correlations AS recent_correlation
+                ON recent_correlation.processed_event_id = recent_processed.id
+            JOIN processed_events AS current_processed
+                ON current_processed.id = ?
+            JOIN events AS current_event
+                ON current_event.event_id = current_processed.event_id
+            WHERE recent_processed.id != current_processed.id
+              AND recent_events.site_id = current_event.site_id
+              AND julianday(recent_processed.date_created)
+                  <= julianday(current_processed.date_created)
+              AND (
+                  julianday(current_processed.date_created)
+                  - julianday(recent_processed.date_created)
+              ) * 86400 <= ?
+            ORDER BY recent_processed.date_created DESC
+            """,
+            (processed_event_id, window_seconds),
+        )
+        return await cursor.fetchall()
+
+    async def complete_event_correlation(
+        self,
+        processed_event_id: str,
+        base_severity: str,
+        final_severity: str,
+        reason: str | None,
+    ) -> bool:
+        cursor = await self.db.execute(
+            """
+            INSERT OR IGNORE INTO event_correlations (
+                processed_event_id,
+                base_severity,
+                final_severity,
+                reason
+            ) VALUES (?, ?, ?, ?)
+            """,
+            (
+                processed_event_id,
+                base_severity,
+                final_severity,
+                reason,
+            ),
+        )
+
+        if cursor.rowcount == 0:
+            await self.db.commit()
+            return False
+
+        if final_severity == base_severity:
+            await self.db.commit()
+            return False
+
+        await self.db.execute(
+            """
+            UPDATE processed_events
+            SET severity = ?, date_updated = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (final_severity, processed_event_id),
+        )
+        await self.db.commit()
+        return True

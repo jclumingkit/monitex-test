@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from queue_service.event_queue import event_queue
 from ingestion.process_event import process_event
 from models.processed_event import ProcessedEventResponse
+from queue_service.correlation_queue import correlation_queue
 from realtime.sse_manager import sse_manager
 
 
@@ -45,6 +46,14 @@ async def event_worker(worker_id: int, repository):
                     await sse_manager.publish(
                         normalized_result.model_dump(mode="json")
                     )
+
+                    try:
+                        correlation_queue.put_nowait(processed_event_id)
+                    except asyncio.QueueFull:
+                        print(
+                            "Correlation queue full; skipping processed event "
+                            f"{processed_event_id}"
+                        )
 
                 print(
                     f"Worker {worker_id} completed event {event.event_id}"

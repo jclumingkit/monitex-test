@@ -8,7 +8,9 @@ load_dotenv(Path(__file__).with_name(".env"))
 from fastapi import FastAPI
 from realtime.sse_manager import sse_manager
 from queue_service.event_queue import event_queue
+from queue_service.correlation_queue import correlation_queue
 from models.detection_event import DetectionEvent
+from workers.correlation_worker import correlation_worker
 from workers.event_worker import event_worker
 from workers.loop_video_worker.detection import loop_video_worker
 from database.sqlite import connect_db, initialize_db, EventRepository
@@ -42,6 +44,9 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(event_worker(worker_id, repository))
         for worker_id in range(WORKER_COUNT)
     ]
+    correlation_worker_task = asyncio.create_task(
+        correlation_worker(repository)
+    )
 
     video_stop_event = asyncio.Event()
     video_worker_task = asyncio.create_task(
@@ -84,6 +89,15 @@ async def lifespan(app: FastAPI):
                 f"Remaining queued events: {event_queue.qsize()}"
             )
 
+        print("Draining correlation queue...")
+        try:
+            await asyncio.wait_for(correlation_queue.join(), timeout=10)
+        except asyncio.TimeoutError:
+            print(
+                "Correlation queue did not drain before timeout. "
+                f"Remaining queued events: {correlation_queue.qsize()}"
+            )
+
         await sse_manager.shutdown()
 
         print("Stopping workers...")
@@ -93,6 +107,12 @@ async def lifespan(app: FastAPI):
 
         await asyncio.gather(
             *worker_tasks,
+            return_exceptions=True,
+        )
+
+        correlation_worker_task.cancel()
+        await asyncio.gather(
+            correlation_worker_task,
             return_exceptions=True,
         )
 

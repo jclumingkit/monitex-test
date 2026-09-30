@@ -26,6 +26,15 @@ CREATE TABLE IF NOT EXISTS processed_events (
     date_updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS event_correlations (
+    processed_event_id TEXT PRIMARY KEY NOT NULL
+        REFERENCES processed_events(id) ON DELETE CASCADE,
+    base_severity TEXT NOT NULL CHECK (base_severity IN ('critical', 'warning', 'info')),
+    final_severity TEXT NOT NULL CHECK (final_severity IN ('critical', 'warning', 'info')),
+    reason TEXT,
+    date_created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_processed_events_queue_order
 ON processed_events (
     CASE status
