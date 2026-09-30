@@ -13,6 +13,7 @@ from models.detection_event import (
     DetectionEventType,
 )
 from queue_service.event_queue import event_queue
+from snapshot_storage import save_frame_snapshot
 
 
 WORKER_DIR = Path(__file__).resolve().parent
@@ -146,11 +147,26 @@ async def loop_video_worker(
                 break
 
             result = results[0]
-            for event in get_new_person_events(
+            events = get_new_person_events(
                 result,
                 frame_index,
                 emitted_track_ids,
-            ):
+            )
+            snapshot_id = None
+
+            if events:
+                try:
+                    snapshot_id = await asyncio.to_thread(
+                        save_frame_snapshot,
+                        frame,
+                    )
+                except (OSError, cv2.error) as error:
+                    print(f"Could not save detection snapshot: {error}")
+
+            for event in events:
+                if snapshot_id:
+                    event.snapshot_url = f"/api/snapshots/{snapshot_id}"
+
                 await queue.put(event)
                 print(
                     f"Person detected: frame={frame_index} "

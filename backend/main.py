@@ -6,6 +6,7 @@ from workers.event_worker import event_worker
 from workers.loop_video_worker.detection import loop_video_worker
 from database.sqlite import connect_db, initialize_db, EventRepository
 from api.processed_events import router as processed_events_router
+from api.snapshots import router as snapshots_router
 from api.stream_events import router as stream_events
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -132,6 +133,8 @@ async def api_webhook(event: DetectionEvent):
 # GET processed events
 app.include_router(processed_events_router)
 
+# GET event snapshots
+app.include_router(snapshots_router)
+
 # SSE realtime
 app.include_router(stream_events)
-

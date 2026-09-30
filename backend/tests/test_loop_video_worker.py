@@ -82,6 +82,50 @@ class PersonDetectionEventTests(unittest.TestCase):
 
 
 class LoopVideoWorkerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_saves_frame_snapshot_for_new_events(self):
+        stop_event = asyncio.Event()
+
+        class StoppingQueue(asyncio.Queue):
+            async def put(self, item):
+                await super().put(item)
+                stop_event.set()
+
+        queue = StoppingQueue()
+        frame = object()
+        capture = MagicMock()
+        capture.read.return_value = (True, frame)
+        model = MagicMock()
+        model.track.return_value = [SimpleNamespace(boxes=[make_box()])]
+
+        with (
+            patch(
+                "workers.loop_video_worker.detection.YOLO",
+                return_value=model,
+            ),
+            patch(
+                "workers.loop_video_worker.detection._open_video",
+                return_value=(capture, 30.0),
+            ),
+            patch(
+                "workers.loop_video_worker.detection.save_frame_snapshot",
+                return_value="0123456789abcdef0123456789abcdef",
+            ) as save_snapshot,
+        ):
+            await loop_video_worker(
+                stop_event,
+                source=Path("video.mp4"),
+                model_path=Path("model.pt"),
+                queue=queue,
+            )
+
+        event = queue.get_nowait()
+        self.assertEqual(
+            event.snapshot_url,
+            "/api/snapshots/0123456789abcdef0123456789abcdef",
+        )
+        save_snapshot.assert_called_once_with(frame)
+        capture.release.assert_called_once_with()
+
     async def test_does_not_enqueue_after_shutdown_is_requested(self):
         stop_event = asyncio.Event()
         queue = asyncio.Queue()

@@ -37,17 +37,27 @@ type EventDetailsProps = {
 };
 
 const passthroughImageLoader: ImageLoader = ({ src }) => src;
+const BACKEND_URL = (
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000"
+).replace(/\/$/, "");
+
+const resolveSnapshotUrl = (snapshotUrl: string | null) => {
+  if (!snapshotUrl) return undefined;
+  if (snapshotUrl.startsWith("http://") || snapshotUrl.startsWith("https://")) {
+    return snapshotUrl;
+  }
+  if (snapshotUrl.startsWith("/")) return `${BACKEND_URL}${snapshotUrl}`;
+
+  return undefined;
+};
 
 const EventSnapshot = ({ event }: { event: ProcessedEvent }) => {
   const [failed, setFailed] = useState(false);
-  const isRemoteImage =
-    event.snapshot_url?.startsWith("http://") ||
-    event.snapshot_url?.startsWith("https://");
-  const showPlaceholder = !isRemoteImage || failed;
-  const imageSource =
-    !showPlaceholder && event.snapshot_url
-      ? event.snapshot_url
-      : "/snapshot-placeholder.svg";
+  const snapshotUrl = resolveSnapshotUrl(event.snapshot_url);
+  const showPlaceholder = !snapshotUrl || failed;
+  const imageSource = !showPlaceholder
+    ? snapshotUrl
+    : "/snapshot-placeholder.svg";
 
   return (
     <div className="relative aspect-video overflow-hidden rounded-lg border bg-muted">
@@ -95,6 +105,7 @@ export default function EventDetails({
   onClose,
   onStatusChange,
 }: EventDetailsProps) {
+  const snapshotUrl = resolveSnapshotUrl(event?.snapshot_url ?? null);
   const [updateError, setUpdateError] = useState<{
     eventId: string;
     message: string;
@@ -206,7 +217,7 @@ export default function EventDetails({
           <DetailRow label="Timestamp" value={formatDate(event.timestamp)} />
         </dl>
 
-        {event.snapshot_url && (
+        {snapshotUrl && (
           <>
             <Separator />
             <div className="flex items-center justify-between gap-3 text-sm">
@@ -214,7 +225,7 @@ export default function EventDetails({
                 Snapshot URL
               </span>
               <a
-                href={event.snapshot_url}
+                href={snapshotUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
