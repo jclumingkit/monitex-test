@@ -77,6 +77,7 @@ const EVENT_TYPES = [
   "smoke_detected",
   "fire_alarm",
   "object_detected",
+  "person_detected",
   "loitering",
   "camera_offline",
   "panic_button",
