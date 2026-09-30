@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" role="img" aria-labelledby="title description">
+  <title id="title">Snapshot unavailable</title>
+  <desc id="description">A dark placeholder for an unavailable event snapshot</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#182330"/>
+      <stop offset="1" stop-color="#0b1119"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#8aa0b8" stroke-opacity=".08"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="450" fill="url(#background)"/>
+  <rect width="800" height="450" fill="url(#grid)"/>
+  <path d="M315 285l62-67 43 43 33-34 58 58H315z" fill="#8aa0b8" fill-opacity=".14"/>
+  <circle cx="453" cy="184" r="22" fill="#8aa0b8" fill-opacity=".14"/>
+  <rect x="286" y="139" width="228" height="172" rx="16" fill="none" stroke="#8aa0b8" stroke-opacity=".24" stroke-width="5"/>
+</svg>

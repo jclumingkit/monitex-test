@@ -13,3 +13,4 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 1. Do not overengineer.
 2. Prefer modularized file structure for easy maintenance and debugging.
 3. Use ES6 syntax (e.g., using arrow function instead of function)
+4. Prefer DRY (Do not Repeat Yourself) principle (e.g., if the function `formatDate` is redundant both `Dashboard.tsx` and `Profile.tsx`, then extract it into a util function that can be used by other components)

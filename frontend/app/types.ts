@@ -1,3 +1,13 @@
+export type EventStatus =
+  | "pending_operator_review"
+  | "acknowledged"
+  | "resolved";
+
+export type EventStatusUpdate = Extract<
+  EventStatus,
+  "acknowledged" | "resolved"
+>;
+
 export type ProcessedEvent = {
   id: string;
   event_id: string;
@@ -10,7 +20,7 @@ export type ProcessedEvent = {
   snapshot_url: string | null;
   severity: "critical" | "warning" | "info";
   summary: string;
-  status: string;
+  status: EventStatus;
   date_created: string;
   date_updated: string;
 };

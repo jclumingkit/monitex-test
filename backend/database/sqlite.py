@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
@@ -9,6 +10,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "monitex.db"
 SCHEMA_PATH = BASE_DIR / "database" / "schema.sql"
+
+
+def normalize_sqlite_datetime(value: str) -> str:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise ValueError("date filters must be valid ISO 8601 values") from error
+
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+
+    return parsed.isoformat(sep=" ", timespec="microseconds")
 
 async def connect_db() -> aiosqlite.Connection:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -29,7 +42,7 @@ async def initialize_db(db: aiosqlite.Connection) -> None:
 
 
 class EventRepository:
-    PROCESSED_EVENTS_PAGE_SIZE = 10
+    PROCESSED_EVENTS_PAGE_SIZE = 14
 
     def __init__(self, db: aiosqlite.Connection):
         self.db = db
@@ -82,18 +95,28 @@ class EventRepository:
             raise ValueError("sort_by must be 'severity' or 'date_created'")
         if date_order not in {"asc", "desc"}:
             raise ValueError("date_order must be 'asc' or 'desc'")
-        if date_from and date_to and date_from > date_to:
+        normalized_date_from = (
+            normalize_sqlite_datetime(date_from) if date_from else None
+        )
+        normalized_date_to = (
+            normalize_sqlite_datetime(date_to) if date_to else None
+        )
+        if (
+            normalized_date_from
+            and normalized_date_to
+            and normalized_date_from > normalized_date_to
+        ):
             raise ValueError("date_from must be before or equal to date_to")
 
         filters = []
         parameters = []
 
-        if date_from:
-            filters.append("events.date_created >= ?")
-            parameters.append(date_from)
-        if date_to:
-            filters.append("events.date_created <= ?")
-            parameters.append(date_to)
+        if normalized_date_from:
+            filters.append("processed_events.date_created >= ?")
+            parameters.append(normalized_date_from)
+        if normalized_date_to:
+            filters.append("processed_events.date_created <= ?")
+            parameters.append(normalized_date_to)
         if status:
             filters.append("processed_events.status = ?")
             parameters.append(status)
@@ -103,17 +126,32 @@ class EventRepository:
             where_clause = "WHERE " + " AND ".join(filters)
 
         if sort_by == "severity":
-            order_clause = """
+            status_order = ""
+            if not status:
+                status_order = """
+                    CASE processed_events.status
+                        WHEN 'pending_operator_review' THEN 1
+                        WHEN 'acknowledged' THEN 2
+                        WHEN 'resolved' THEN 3
+                        ELSE 4
+                    END ASC,
+                """
+            order_clause = f"""
+                {status_order}
                 CASE processed_events.severity
                     WHEN 'critical' THEN 1
                     WHEN 'warning' THEN 2
                     WHEN 'info' THEN 3
+                    ELSE 4
                 END ASC,
-                events.date_created DESC,
+                processed_events.date_created DESC,
                 processed_events.id ASC
             """
         else:
-            order_clause = f"events.date_created {date_order.upper()}, processed_events.id ASC"
+            order_clause = (
+                f"processed_events.date_created {date_order.upper()}, "
+                "processed_events.id ASC"
+            )
 
         offset = (page - 1) * self.PROCESSED_EVENTS_PAGE_SIZE
         parameters.extend([self.PROCESSED_EVENTS_PAGE_SIZE, offset])
@@ -145,6 +183,52 @@ class EventRepository:
             parameters,
         )
         return await cursor.fetchall()
+
+    async def update_event_status(
+        self,
+        event_id: str,
+        status: Literal["acknowledged", "resolved"],
+    ) -> bool:
+        if status not in {"acknowledged", "resolved"}:
+            raise ValueError("status must be 'acknowledged' or 'resolved'")
+
+        cursor = await self.db.execute(
+            """
+            UPDATE processed_events
+            SET status = ?, date_updated = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (status, event_id),
+        )
+        await self.db.commit()
+
+        return cursor.rowcount > 0
+
+    async def bulk_update_event_status(
+        self,
+        event_ids: list[str],
+        status: Literal["acknowledged", "resolved"],
+    ) -> list[str]:
+        if status not in {"acknowledged", "resolved"}:
+            raise ValueError("status must be 'acknowledged' or 'resolved'")
+        if not event_ids:
+            raise ValueError("event_ids must contain at least one event ID")
+
+        unique_event_ids = list(dict.fromkeys(event_ids))
+        placeholders = ", ".join("?" for _ in unique_event_ids)
+        cursor = await self.db.execute(
+            f"""
+            UPDATE processed_events
+            SET status = ?, date_updated = CURRENT_TIMESTAMP
+            WHERE id IN ({placeholders})
+            RETURNING id
+            """,
+            (status, *unique_event_ids),
+        )
+        rows = await cursor.fetchall()
+        await self.db.commit()
+
+        return [row[0] for row in rows]
 
     async def save_processed_event(self, event):
         processed_event_id = str(uuid4())

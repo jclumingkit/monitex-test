@@ -26,5 +26,39 @@ CREATE TABLE IF NOT EXISTS processed_events (
     date_updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX IF NOT EXISTS idx_processed_events_queue_order
+ON processed_events (
+    CASE status
+        WHEN 'pending_operator_review' THEN 1
+        WHEN 'acknowledged' THEN 2
+        WHEN 'resolved' THEN 3
+        ELSE 4
+    END,
+    CASE severity
+        WHEN 'critical' THEN 1
+        WHEN 'warning' THEN 2
+        WHEN 'info' THEN 3
+        ELSE 4
+    END,
+    date_created DESC,
+    id ASC
+);
+
+CREATE INDEX IF NOT EXISTS idx_processed_events_status_severity
+ON processed_events (
+    status,
+    CASE severity
+        WHEN 'critical' THEN 1
+        WHEN 'warning' THEN 2
+        WHEN 'info' THEN 3
+        ELSE 4
+    END,
+    date_created DESC,
+    id ASC
+);
+
+CREATE INDEX IF NOT EXISTS idx_processed_events_date_created
+ON processed_events (date_created DESC, id ASC);
+
 
 -- Add operator_action_logs once users table is available. it should log all operator actions like attempted to resolve an event

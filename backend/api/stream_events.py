@@ -20,6 +20,9 @@ async def stream_events() -> AsyncIterable[ServerSentEvent]:
         while True:
             event = await queue.get()
 
+            if event is None:
+                break
+
             yield ServerSentEvent(
                 data=event,
                 event="alarm",

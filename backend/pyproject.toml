@@ -8,4 +8,5 @@ dependencies = [
     "aiosqlite>=0.22.1",
     "fastapi[standard]>=0.141.1",
     "requests>=2.34.2",
+    "ultralytics>=8.4.168",
 ]

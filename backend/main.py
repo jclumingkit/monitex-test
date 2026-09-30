@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from realtime.sse_manager import sse_manager
 from queue_service.event_queue import event_queue
 from models.detection_event import DetectionEvent
 from workers.event_worker import event_worker
@@ -52,6 +53,8 @@ async def lifespan(app: FastAPI):
             f"Queue did not drain before timeout. "
             f"Remaining queued events: {event_queue.qsize()}"
         )
+
+    await sse_manager.shutdown()
 
     print("Stopping workers...")
 
