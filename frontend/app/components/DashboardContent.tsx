@@ -62,6 +62,7 @@ export default function DashboardContent({
   const [selectedEventSnapshot, setSelectedEventSnapshot] = useState<
     ProcessedEvent | undefined
   >(initialEvents[0]);
+  const [newEventIds, setNewEventIds] = useState<Set<string>>(() => new Set());
   const queryStatus = statusFilter === "all" ? undefined : statusFilter;
   const queryKey = getProcessedEventsQueryKey(queryStatus, dateFrom);
   const isInitialQuery = !queryStatus && !dateFrom;
@@ -94,6 +95,7 @@ export default function DashboardContent({
     const matchesStatus = !queryStatus || event.status === queryStatus;
     const matchesDate =
       !dateFrom || new Date(event.date_created).getTime() >= Date.parse(dateFrom);
+    let inserted = false;
 
     if (!matchesStatus || !matchesDate) return;
 
@@ -109,16 +111,26 @@ export default function DashboardContent({
         }
 
         if (!current) {
+          inserted = true;
           return { pages: [[event]], pageParams: [1] };
         }
 
         const [firstPage = [], ...remainingPages] = current.pages;
+        inserted = true;
         return {
           ...current,
           pages: [[event, ...firstPage], ...remainingPages],
         };
       },
     );
+
+    if (!inserted) return;
+
+    setNewEventIds((current) => {
+      const next = new Set(current);
+      next.add(event.id);
+      return next;
+    });
     setSelectedEventId((current) => current ?? event.id);
   });
 
@@ -146,6 +158,13 @@ export default function DashboardContent({
   const selectEvent = (eventId: string) => {
     setSelectedEventId(eventId);
     setSelectedEventSnapshot(events.find((event) => event.id === eventId));
+    setNewEventIds((current) => {
+      if (!current.has(eventId)) return current;
+
+      const next = new Set(current);
+      next.delete(eventId);
+      return next;
+    });
   };
 
   const selectByIndex = (index: number) => {
@@ -203,6 +222,7 @@ export default function DashboardContent({
     <div className="grid min-w-0 gap-4 p-4 xl:h-[calc(100svh-4rem)] xl:grid-cols-[minmax(0,1fr)_24rem]">
       <DetectionEventsFeed
         events={events}
+        newEventIds={newEventIds}
         selectedEventId={selectedEventId}
         statusFilter={statusFilter}
         dateRange={dateRange}

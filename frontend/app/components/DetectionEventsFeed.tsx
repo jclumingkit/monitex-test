@@ -40,6 +40,7 @@ import { SeverityBadge, StatusBadge } from "./EventBadges";
 
 type DetectionEventsFeedProps = {
   events: ProcessedEvent[];
+  newEventIds: ReadonlySet<string>;
   selectedEventId?: string;
   statusFilter: "all" | EventStatus;
   dateRange: string;
@@ -123,6 +124,7 @@ const FilterSubmenu = ({
 
 export default function DetectionEventsFeed({
   events,
+  newEventIds,
   selectedEventId,
   statusFilter,
   dateRange,
@@ -345,6 +347,15 @@ export default function DetectionEventsFeed({
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {newEventIds.size > 0 && (
+            <span
+              className="ml-auto inline-flex items-center rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-800 dark:bg-sky-900/50 dark:text-sky-200"
+              role="status"
+            >
+              {newEventIds.size} new
+            </span>
+          )}
         </div>
         {bulkError && (
           <p className="mt-2 text-sm text-destructive" role="alert">
@@ -381,7 +392,8 @@ export default function DetectionEventsFeed({
                 key={event.id}
                 tabIndex={0}
                 aria-selected={event.id === selectedEventId}
-                className="cursor-pointer aria-selected:bg-primary/10 aria-selected:ring-1 aria-selected:ring-inset aria-selected:ring-primary hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                data-new={newEventIds.has(event.id) || undefined}
+                className="cursor-pointer data-[new=true]:bg-sky-50 data-[new=true]:hover:bg-sky-100/80 aria-selected:bg-primary/10 aria-selected:ring-1 aria-selected:ring-inset aria-selected:ring-primary hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring dark:data-[new=true]:bg-sky-950/50 dark:data-[new=true]:hover:bg-sky-900/40"
                 onClick={() => onSelectEvent(event.id)}
                 onKeyDown={(keyboardEvent) => {
                   if (
