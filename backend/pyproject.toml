@@ -8,6 +8,7 @@ dependencies = [
     "aiosqlite>=0.22.1",
     "fastapi[standard]>=0.141.1",
     "lap>=0.5.13",
+    "python-dotenv>=1.1.0",
     "requests>=2.34.2",
     "ultralytics>=8.4.168",
 ]

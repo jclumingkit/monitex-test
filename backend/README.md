@@ -60,11 +60,15 @@ On startup, the backend creates the local data directory and initializes the
 SQLite schema if the database does not already exist. The database connection is
 closed after the worker queue is drained during shutdown.
 
-To use the AI classifier and summarizer, set an OpenRouter API key before
-starting the backend:
+To use the AI classifier and summarizer, add an OpenRouter API key to `.env`:
 
 ```bash
-export OPEN_ROUTER_API="your-api-key"
+OPEN_ROUTER_API="your-api-key"
+```
+
+Then start the backend normally:
+
+```bash
 uv run fastapi dev main.py
 ```
 

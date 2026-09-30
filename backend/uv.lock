@@ -64,6 +64,7 @@ dependencies = [
     { name = "aiosqlite" },
     { name = "fastapi", extra = ["standard"] },
     { name = "lap" },
+    { name = "python-dotenv" },
     { name = "requests" },
     { name = "ultralytics" },
 ]
@@ -73,6 +74,7 @@ requires-dist = [
     { name = "aiosqlite", specifier = ">=0.22.1" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.141.1" },
     { name = "lap", specifier = ">=0.5.13" },
+    { name = "python-dotenv", specifier = ">=1.1.0" },
     { name = "requests", specifier = ">=2.34.2" },
     { name = "ultralytics", specifier = ">=8.4.168" },
 ]

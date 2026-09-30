@@ -1,3 +1,10 @@
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+
+load_dotenv(Path(__file__).with_name(".env"))
+
 from fastapi import FastAPI
 from realtime.sse_manager import sse_manager
 from queue_service.event_queue import event_queue
