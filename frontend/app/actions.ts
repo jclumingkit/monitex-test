@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/lib/action-result";
 import type { EventStatus, EventStatusUpdate, ProcessedEvent } from "./types";
 
 type GetProcessedEventsOptions = {
@@ -9,14 +10,34 @@ type GetProcessedEventsOptions = {
   status?: EventStatus;
 };
 
+const requestBackend = async <T>(
+  url: string,
+  init?: RequestInit,
+): Promise<ActionResult<T>> => {
+  try {
+    const response = await fetch(url, { ...init, cache: "no-store" });
+
+    if (!response.ok) {
+      return {
+        data: null,
+        error: `Backend request failed with status ${response.status}`,
+      };
+    }
+
+    return { data: (await response.json()) as T, error: null };
+  } catch {
+    return { data: null, error: "Unable to connect to the backend" };
+  }
+};
+
 export async function getProcessedEvents({
   page = 1,
   dateFrom,
   dateTo,
   status,
-}: GetProcessedEventsOptions = {}): Promise<ProcessedEvent[]> {
+}: GetProcessedEventsOptions = {}): Promise<ActionResult<ProcessedEvent[]>> {
   if (!Number.isInteger(page) || page < 1) {
-    throw new Error("Page must be a positive integer");
+    return { data: null, error: "Page must be a positive integer" };
   }
 
   const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
@@ -26,72 +47,68 @@ export async function getProcessedEvents({
   if (dateTo) parameters.set("date_to", dateTo);
   if (status) parameters.set("status", status);
 
-  const response = await fetch(
+  return requestBackend<ProcessedEvent[]>(
     `${backendUrl}/api/get-processed-events?${parameters}`,
-    { cache: "no-store" },
   );
+}
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch processed events: ${response.status}`);
+export async function getSiteProcessedEvents(
+  siteId: string,
+  page = 1,
+): Promise<ActionResult<ProcessedEvent[]>> {
+  if (!siteId) {
+    return { data: null, error: "Site ID is required" };
+  }
+  if (!Number.isInteger(page) || page < 1) {
+    return { data: null, error: "Page must be a positive integer" };
   }
 
-  return response.json() as Promise<ProcessedEvent[]>;
+  const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
+  return requestBackend<ProcessedEvent[]>(
+    `${backendUrl}/api/sites/${encodeURIComponent(siteId)}/processed-events?page=${page}`,
+  );
 }
 
 export async function updateEventStatus(
   eventId: string,
   status: EventStatusUpdate,
-): Promise<{ id: string; status: EventStatusUpdate }> {
+): Promise<ActionResult<{ id: string; status: EventStatusUpdate }>> {
   if (!eventId) {
-    throw new Error("Event ID is required");
+    return { data: null, error: "Event ID is required" };
   }
   if (status !== "acknowledged" && status !== "resolved") {
-    throw new Error("Invalid event status");
+    return { data: null, error: "Invalid event status" };
   }
 
   const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
-  const response = await fetch(
+  return requestBackend<{ id: string; status: EventStatusUpdate }>(
     `${backendUrl}/api/processed-events/${encodeURIComponent(eventId)}/status`,
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
-      cache: "no-store",
     },
   );
-
-  if (!response.ok) {
-    throw new Error(`Failed to update event status: ${response.status}`);
-  }
-
-  return response.json() as Promise<{ id: string; status: EventStatusUpdate }>;
 }
 
 export async function bulkUpdateEventStatus(
   eventIds: string[],
   status: EventStatusUpdate,
-): Promise<{ ids: string[]; status: EventStatusUpdate }> {
+): Promise<ActionResult<{ ids: string[]; status: EventStatusUpdate }>> {
   if (eventIds.length === 0) {
-    throw new Error("At least one event ID is required");
+    return { data: null, error: "At least one event ID is required" };
   }
   if (status !== "acknowledged" && status !== "resolved") {
-    throw new Error("Invalid event status");
+    return { data: null, error: "Invalid event status" };
   }
 
   const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
-  const response = await fetch(`${backendUrl}/api/processed-events/status`, {
+  return requestBackend<{
+    ids: string[];
+    status: EventStatusUpdate;
+  }>(`${backendUrl}/api/processed-events/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ event_ids: eventIds, status }),
-    cache: "no-store",
   });
-
-  if (!response.ok) {
-    throw new Error(`Failed to update event statuses: ${response.status}`);
-  }
-
-  return response.json() as Promise<{
-    ids: string[];
-    status: EventStatusUpdate;
-  }>;
 }

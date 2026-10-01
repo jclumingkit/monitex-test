@@ -69,5 +69,8 @@ ON processed_events (
 CREATE INDEX IF NOT EXISTS idx_processed_events_date_created
 ON processed_events (date_created DESC, id ASC);
 
+CREATE INDEX IF NOT EXISTS idx_events_site_timestamp
+ON events (site_id, timestamp, event_id);
+
 
 -- Add operator_action_logs once users table is available. it should log all operator actions like attempted to resolve an event

@@ -5,6 +5,7 @@ import {
   useInfiniteQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { unwrapActionResult } from "@/lib/action-result";
 import { useEffect, useEffectEvent, useState } from "react";
 import { getProcessedEvents } from "../actions";
 import type {
@@ -17,6 +18,7 @@ import EventDetails from "./EventDetails";
 
 type DashboardContentProps = {
   initialEvents: ProcessedEvent[];
+  initialLoadError: boolean;
 };
 
 type StatusFilter = "all" | EventStatus;
@@ -51,6 +53,7 @@ const compareEvents = (left: ProcessedEvent, right: ProcessedEvent) =>
 
 export default function DashboardContent({
   initialEvents,
+  initialLoadError,
 }: DashboardContentProps) {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -69,16 +72,18 @@ export default function DashboardContent({
 
   const eventsQuery = useInfiniteQuery({
     queryKey,
-    queryFn: ({ pageParam }) =>
-      getProcessedEvents({
-        page: pageParam,
-        status: queryStatus,
-        dateFrom,
-      }),
+    queryFn: async ({ pageParam }) =>
+      unwrapActionResult(
+        await getProcessedEvents({
+          page: pageParam,
+          status: queryStatus,
+          dateFrom,
+        }),
+      ),
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) =>
       lastPage.length > 0 ? allPages.length + 1 : undefined,
-    initialData: isInitialQuery
+    initialData: isInitialQuery && !initialLoadError
       ? { pages: [initialEvents], pageParams: [1] }
       : undefined,
     staleTime: 10_000,

@@ -184,6 +184,47 @@ class EventRepository:
         )
         return await cursor.fetchall()
 
+    async def get_processed_events_by_site(
+        self,
+        site_id: str,
+        page: int = 1,
+    ) -> list[aiosqlite.Row]:
+        if not site_id:
+            raise ValueError("site_id is required")
+        if page < 1:
+            raise ValueError("page must be at least 1")
+
+        offset = (page - 1) * self.PROCESSED_EVENTS_PAGE_SIZE
+        cursor = await self.db.execute(
+            """
+            SELECT
+                processed_events.id,
+                processed_events.event_id,
+                processed_events.severity,
+                processed_events.summary,
+                processed_events.status,
+                processed_events.date_created,
+                processed_events.date_updated,
+                events.site_id,
+                events.zone,
+                events.type,
+                events.source,
+                events.confidence,
+                events.timestamp,
+                events.snapshot_url
+            FROM processed_events
+            JOIN events ON events.event_id = processed_events.event_id
+            WHERE events.site_id = ?
+            ORDER BY
+                julianday(events.timestamp) ASC,
+                events.timestamp ASC,
+                processed_events.id ASC
+            LIMIT ? OFFSET ?
+            """,
+            (site_id, self.PROCESSED_EVENTS_PAGE_SIZE, offset),
+        )
+        return await cursor.fetchall()
+
     async def update_event_status(
         self,
         event_id: str,

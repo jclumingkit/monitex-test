@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { formatDateOnly, formatTime, humanize } from "@/lib/utils";
 import { useMutation } from "@tanstack/react-query";
+import { unwrapActionResult } from "@/lib/action-result";
 import { CheckCheck, ChevronRight, Filter, LoaderCircle } from "lucide-react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { bulkUpdateEventStatus } from "../actions";
@@ -154,7 +155,8 @@ export default function DetectionEventsFeed({
     }: {
       eventIds: string[];
       status: EventStatusUpdate;
-    }) => bulkUpdateEventStatus(eventIds, status),
+    }) =>
+      bulkUpdateEventStatus(eventIds, status).then(unwrapActionResult),
     onSuccess: (updated) => {
       onBulkStatusChange(updated.ids, updated.status);
       setSelectedIds((current) => {

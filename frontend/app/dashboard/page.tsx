@@ -2,7 +2,12 @@ import { getProcessedEvents } from "../actions";
 import DashboardContent from "../components/DashboardContent";
 
 export default async function Page() {
-  const events = await getProcessedEvents();
+  const result = await getProcessedEvents();
 
-  return <DashboardContent initialEvents={events} />;
+  return (
+    <DashboardContent
+      initialEvents={result.data ?? []}
+      initialLoadError={result.error !== null}
+    />
+  );
 }

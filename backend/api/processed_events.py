@@ -87,3 +87,22 @@ async def get_processed_events(
         raise HTTPException(status_code=400, detail=str(error)) from error
 
     return [ProcessedEventResponse.model_validate(dict(row)) for row in rows]
+
+
+@router.get(
+    "/sites/{site_id}/processed-events",
+    response_model=list[ProcessedEventResponse],
+)
+async def get_site_processed_events(
+    site_id: str,
+    request: Request,
+    page: int = Query(default=1, ge=1),
+) -> list[ProcessedEventResponse]:
+    repository: EventRepository = request.app.state.repository
+
+    try:
+        rows = await repository.get_processed_events_by_site(site_id, page)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+    return [ProcessedEventResponse.model_validate(dict(row)) for row in rows]

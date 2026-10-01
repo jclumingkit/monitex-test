@@ -21,7 +21,9 @@ import {
   X,
 } from "lucide-react";
 import Image, { type ImageLoader } from "next/image";
-import { useState } from "react";
+import Link from "next/link";
+import { type ReactNode, useState } from "react";
+import { unwrapActionResult } from "@/lib/action-result";
 import { updateEventStatus } from "../actions";
 import type { EventStatusUpdate, ProcessedEvent } from "../types";
 import { SeverityBadge, StatusBadge } from "./EventBadges";
@@ -87,7 +89,7 @@ const EventSnapshot = ({ event }: { event: ProcessedEvent }) => {
   );
 };
 
-const DetailRow = ({ label, value }: { label: string; value: string }) => (
+const DetailRow = ({ label, value }: { label: string; value: ReactNode }) => (
   <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-3 text-sm">
     <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
       {label}
@@ -117,7 +119,8 @@ export default function EventDetails({
     }: {
       eventId: string;
       status: EventStatusUpdate;
-    }) => updateEventStatus(eventId, status),
+    }) =>
+      updateEventStatus(eventId, status).then(unwrapActionResult),
     onSuccess: (updatedEvent) => {
       onStatusChange(updatedEvent.id, updatedEvent.status);
     },
@@ -206,7 +209,20 @@ export default function EventDetails({
         <dl className="space-y-3">
           <DetailRow label="ID" value={event.id} />
           <DetailRow label="Event ID" value={event.event_id} />
-          <DetailRow label="Site ID" value={humanize(event.site_id)} />
+          <DetailRow
+            label="Site ID"
+            value={
+              <Link
+                href={`/site/${encodeURIComponent(event.site_id)}`}
+                className="inline-flex items-center gap-1.5 text-primary underline-offset-4 hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {humanize(event.site_id)}
+                <ExternalLink className="size-3.5" aria-hidden="true" />
+              </Link>
+            }
+          />
           <DetailRow label="Zone" value={humanize(event.zone)} />
           <DetailRow label="Type" value={humanize(event.type)} />
           <DetailRow label="Source" value={humanize(event.source)} />

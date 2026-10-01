@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Monitex Operator Dashboard
+
+This Next.js application provides the operator interface for the Monitex
+security-event processing demo.
+
+## Features
+
+- Live alert delivery over server-sent events (SSE), including severity updates
+  produced by backend correlation.
+- Paginated event feed with severity ordering, status filters, and date ranges.
+- Detailed event view with detection metadata and available snapshots.
+- Individual and bulk actions for acknowledging or resolving alerts.
+- New-event indicators and automatic cache updates for incoming alerts.
+- Per-site event timelines at `/site/{siteId}`, ordered from the oldest source
+  event to the newest and loaded automatically as the page is scrolled.
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies and start the development server:
+
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000/dashboard](http://localhost:3000/dashboard). The
+backend must also be running; see `../backend/README.md` for its setup.
+
+## Configuration
+
+The frontend uses `http://localhost:8000` by default. Set these variables when
+the backend is available at another origin:
+
+```bash
+BACKEND_URL="http://localhost:8000"
+NEXT_PUBLIC_BACKEND_URL="http://localhost:8000"
+```
+
+`BACKEND_URL` is used by server actions for queries and status updates.
+`NEXT_PUBLIC_BACKEND_URL` is used by the browser for the live SSE connection.
+
+## Routes
+
+- `/dashboard` displays the live operator event feed and event details.
+- `/site/{siteId}` displays the paginated timeline for one site. Site IDs in the
+  event details panel link directly to this route.
+
+## Commands
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run lint
+npm run build
+npm run start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The application uses Next.js 16, React 19, TanStack Query, Tailwind CSS, Base UI,
+and shadcn components.

@@ -1,7 +1,7 @@
-# Monitex Event Processing Demo
+# Monitex Event Processing Backend
 
-This backend demonstrates how a security monitoring system could receive a
-continuous stream of detection events and turn them into useful alerts.
+This FastAPI backend receives a continuous stream of security detections and
+turns them into alerts that operators can review in the Monitex dashboard.
 
 An event might report motion near a perimeter, a forced door, smoke, a camera
 going offline, or a panic button being pressed. The backend checks the event,
@@ -21,6 +21,11 @@ for an operator.
 6. Events that are likely false positives are filtered out. Accepted events are
    assigned a severity, given a one-sentence summary, and saved for operator
    review with a pending status.
+7. Accepted events are immediately published to connected dashboards over
+   server-sent events (SSE).
+8. A separate worker correlates recent events from the same site. Repeated or
+   combined signals can raise an event's severity and publish the update without
+   delaying the initial alert.
 
 ```text
 Simulated event stream
@@ -29,20 +34,23 @@ Simulated event stream
      Relay
         |
         v
- Backend webhook -> Event queue -> 5 concurrent workers -> SQLite
+ Backend webhook -> Event queue -> 5 concurrent workers -> SQLite -> SSE
+                                       |                         |
+                                       v                         v
+                           Classify and summarize      Operator dashboard
                                        |
                                        v
-                           Classify and summarize
+                              Correlation queue
                                        |
                                        v
-                               Processed events
+                         Correlate, persist, and republish
 ```
 
-This is currently a prototype. Events are stored in a local SQLite database at
-`backend/data/monitex.db`. Raw received events are stored in `events`, while
-accepted classified events are stored in `processed_events` with a default
-status of `pending_operator_review`. There is not yet a user interface or an
-operator workflow for updating that status.
+Events are stored in a local SQLite database at `data/monitex.db`. Raw received
+events are stored in `events`, accepted alerts are stored in `processed_events`,
+and completed correlation evaluations are stored in `event_correlations`.
+Processed events begin with a `pending_operator_review` status and can be
+acknowledged or resolved through the API and dashboard.
 
 ## Running the Backend
 
@@ -56,24 +64,34 @@ uv run fastapi dev main.py
 The backend starts at `http://127.0.0.1:8000`. Its health status is available at
 `http://127.0.0.1:8000/health`.
 
-On startup, the backend creates the local data directory and initializes the
-SQLite schema if the database does not already exist. The database connection is
-closed after the worker queue is drained during shutdown.
+On startup, the backend creates the local data directory, initializes the SQLite
+schema, starts five event workers, one correlation worker, and the looped video
+detection worker. Queues are drained and the database connection is closed
+during graceful shutdown.
 
-To use the AI classifier and summarizer, add an OpenRouter API key to `.env`:
+To use the AI classifier and summarizer, add an OpenRouter API key to
+`backend/.env`:
 
 ```bash
 OPEN_ROUTER_API="your-api-key"
 ```
 
-Then start the backend normally:
+The backend loads this file automatically. Existing environment variables take
+precedence over values in `.env`. The demo also runs without a key by using
+local classification rules and a summary generated from the event fields.
 
-```bash
-uv run fastapi dev main.py
-```
+## API Overview
 
-The demo still runs without an API key. In that case, it uses local fallback
-rules for classification and generates a basic summary from the event fields.
+- `POST /api/webhook` validates and queues a detection event.
+- `GET /api/get-processed-events` returns paginated alerts with status and date
+  filters.
+- `GET /api/sites/{site_id}/processed-events` returns a site's paginated event
+  history, ordered by the source event timestamp.
+- `PATCH /api/processed-events/{event_id}/status` acknowledges or resolves one
+  alert.
+- `PATCH /api/processed-events/status` updates multiple alerts.
+- `GET /api/events/stream` streams new and correlated alert updates over SSE.
+- `GET /health` reports service and event queue status.
 
 ## Running the Full Demo
 
@@ -87,10 +105,11 @@ See `../stream/README.md` for the stream commands.
 
 ## Current Limits
 
-- The queue exists only in memory and is lost when the backend stops.
+- The event and correlation queues exist only in memory and are lost when the
+  backend stops.
 - The SQLite database is local to the backend instance and is not configured for
   multi-instance deployments.
 - False-positive events are stored as raw events but are not yet inserted into
   `processed_events`.
 - There is no authentication on the webhook.
-- The demo does not yet provide a dashboard or operator review workflow.
+- Correlation uses fixed demo rules rather than configurable policies.

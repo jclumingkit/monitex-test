@@ -199,6 +199,63 @@ class GetProcessedEventsTests(unittest.IsolatedAsyncioTestCase):
             ["pending-critical-new", "pending-warning"],
         )
 
+    async def test_site_timeline_uses_event_timestamp_ascending(self):
+        await self.db.execute(
+            "UPDATE events SET timestamp = ? WHERE event_id = ?",
+            ("2025-12-31 00:00:00", "pending-critical-new"),
+        )
+        await self.db.execute(
+            "UPDATE events SET timestamp = ? WHERE event_id = ?",
+            ("2026-02-01 00:00:00", "pending-critical-old"),
+        )
+        await self.db.commit()
+
+        rows = []
+        for page in range(1, 4):
+            rows.extend(
+                await self.repository.get_processed_events_by_site(
+                    "site", page
+                )
+            )
+
+        self.assertEqual(
+            [row["id"] for row in rows],
+            [
+                "pending-critical-new",
+                "pending-info",
+                "pending-warning",
+                "acknowledged-critical",
+                "acknowledged-info",
+                "resolved-critical",
+                "pending-critical-old",
+            ],
+        )
+
+    async def test_site_timeline_filters_and_paginates(self):
+        await self.db.execute(
+            "UPDATE events SET site_id = ? WHERE event_id = ?",
+            ("other-site", "pending-warning"),
+        )
+        await self.db.commit()
+
+        first_page = await self.repository.get_processed_events_by_site(
+            "site", page=1
+        )
+        second_page = await self.repository.get_processed_events_by_site(
+            "site", page=2
+        )
+
+        self.assertEqual(len(first_page), 3)
+        self.assertEqual(len(second_page), 3)
+        self.assertNotIn(
+            "pending-warning",
+            [row["id"] for row in first_page + second_page],
+        )
+
+    async def test_site_timeline_rejects_invalid_page(self):
+        with self.assertRaisesRegex(ValueError, "at least 1"):
+            await self.repository.get_processed_events_by_site("site", page=0)
+
 
 if __name__ == "__main__":
     unittest.main()
