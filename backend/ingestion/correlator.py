@@ -2,7 +2,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Mapping
 
-from models.detection_event import DetectionEventSeverity
+from models.detection_event import (
+    DetectionEventSeverity,
+    DetectionEventType,
+    SITE_NOT_DEFINED,
+)
 
 
 CORRELATION_WINDOW_SECONDS = 120
@@ -41,6 +45,12 @@ def correlate_event(
     current: Mapping,
     recent_events: list[Mapping],
 ) -> CorrelationDecision | None:
+    if (
+        current["site_id"] == SITE_NOT_DEFINED
+        or current["type"] == DetectionEventType.TYPE_NOT_DEFINED.value
+    ):
+        return None
+
     current_type = current["type"]
     base_severity = DetectionEventSeverity(current["severity"])
     current_created = datetime.fromisoformat(current["date_created"])

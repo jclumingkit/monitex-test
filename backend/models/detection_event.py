@@ -1,9 +1,25 @@
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
+from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+SITE_NOT_DEFINED = "site-not-defined"
+
+
+def generate_event_id() -> str:
+    return f"evt_{uuid4().hex[:10]}"
+
+
+def current_utc_time() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def is_missing_string(value: Any) -> bool:
+    return value is None or isinstance(value, str) and not value.strip()
 
 
 class DetectionEventType(str, Enum):
@@ -19,24 +35,55 @@ class DetectionEventType(str, Enum):
     CAMERA_OFFLINE = "camera_offline"
     SENSOR_FAULT = "sensor_fault"
     PANIC_BUTTON = "panic_button"
+    TYPE_NOT_DEFINED = "type_not_defined"
 
 
 class DetectionEventSource(str, Enum):
     CAMERA = "camera"
     SENSOR = "sensor"
+    SOURCE_NOT_DEFINED = "SOURCE_NOT_DEFINED"
 
 
 class DetectionEvent(BaseModel):
-    event_id: str
-    site_id: str
-    zone: str
-    type: DetectionEventType
-    source: DetectionEventSource
-    confidence: float = Field(ge=0.0, le=1.0)
-    timestamp: datetime
+    event_id: str = Field(default_factory=generate_event_id)
+    site_id: str = SITE_NOT_DEFINED
+    zone: str = "zone-not-defined"
+    type: DetectionEventType = DetectionEventType.TYPE_NOT_DEFINED
+    source: DetectionEventSource = DetectionEventSource.SOURCE_NOT_DEFINED
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    timestamp: datetime = Field(default_factory=current_utc_time)
     timezone: str | None = None
-    snapshot_url: str | None
-    metadata: dict[str, Any]
+    snapshot_url: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def apply_missing_field_fallbacks(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+
+        event = value.copy()
+        if is_missing_string(event.get("event_id")):
+            event["event_id"] = generate_event_id()
+        if is_missing_string(event.get("site_id")):
+            event["site_id"] = SITE_NOT_DEFINED
+        if is_missing_string(event.get("zone")):
+            event["zone"] = "zone-not-defined"
+        if is_missing_string(event.get("type")):
+            event["type"] = DetectionEventType.TYPE_NOT_DEFINED.value
+        if is_missing_string(event.get("source")):
+            event["source"] = DetectionEventSource.SOURCE_NOT_DEFINED.value
+        if event.get("confidence") is None:
+            event["confidence"] = 0.0
+        if is_missing_string(event.get("timestamp")):
+            event["timestamp"] = current_utc_time().isoformat()
+        if is_missing_string(event.get("timezone")):
+            event["timezone"] = None
+        if is_missing_string(event.get("snapshot_url")):
+            event["snapshot_url"] = None
+        if event.get("metadata") is None:
+            event["metadata"] = {}
+        return event
 
     @field_validator("timestamp")
     @classmethod
