@@ -79,3 +79,17 @@ this order. Leave each command running.
 
 The OpenRouter API key in `backend/.env.example` is optional. Without it, the
 backend uses local classification and summary rules.
+
+## Video Feed
+
+The background worker that loops the test video, extracts events, and sends it to the backend event queue is located at `backend/workers/loop_video_worker/detection.py`. The test video and YOLO26n is already included in `backend/workers/loop_video_worker`.
+
+You can run the worker independently with the following:
+
+```
+// from root directory
+cd backend/workers/loop_video_worker
+uv run run_detection.py
+```
+
+To replicate or change the test video being used, just change `VIDEO_PATH` and run the worker again.
